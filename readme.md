@@ -1,5 +1,0 @@
-
-Dane syntetyczne
-----------------
-
-*Tomasz Lepszy*
