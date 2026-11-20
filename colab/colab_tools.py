@@ -2,18 +2,21 @@
 
 Every meeting's train and test notebooks (colab/mN_*.ipynb) use these steps:
 
+    authenticate()          first: mount Drive and make sure GitHub accepts pushes
     setup()                 pull the code, install, download the data, check the GPU
+    generate_pool(name, ...) synth-generate one pool on the GPU (skips existing images)
     train_run(name, ...)    synth-train one run on the GPU (finished seeds are skipped)
     check_devices(names)    every seed of these runs was trained on cuda
     test_run(name)          synth-test one run (skipped if already tested)
     save_to_github(msg)     commit and push runs/, evidence/, pools/
     mount_drive()           mount Google Drive at /content/drive
     save_models(name)       copy runs/<name>/seed-K/model.pt to Drive
+    save_images(name)       copy pools/<name>/images/ to Drive
     restore_models(name)    copy them back from Drive
     check_environment()     all of the above checks, without training
 
-model.pt goes to Drive (.gitignore keeps it out of git); everything else goes to
-git. restore_models() stops if a run's models are missing from Drive.
+model.pt and pool images go to Drive (.gitignore keeps them out of git); everything
+else goes to git. restore_models() stops if a run's models are missing from Drive.
 """
 
 import json
@@ -99,6 +102,20 @@ def setup():
     require_gpu()
 
 
+def generate_pool(name, prompts, options=()):
+    """synth-generate one pool on the GPU. Images already in pools/<name> are skipped.
+
+    Images stay out of git (.gitignore); save_images() copies them to Drive. The
+    manifest, pool.json and contact sheet go to git.
+    """
+    require_gpu()
+    print(f"\n=== generate {name} ===", flush=True)
+    cmd = ["synth-generate", "--name", name, "--device", "cuda"]
+    for prompt in prompts:
+        cmd += ["--prompt", prompt]
+    sh(*cmd, *options)
+
+
 def train_run(name, method, env=None, tags=(), pool=None, workers=2):
     """synth-train one run on the GPU. Seeds that already have results are skipped.
 
@@ -177,16 +194,47 @@ def save_to_github(message, paths=("runs", "evidence", "pools")):
         print(f"✅ Saved to GitHub: {message}")
         return
     print(mask(push.stderr))
-    from getpass import getpass  # no (valid) token in the clone: ask once, retry
-
-    token = getpass("Push refused. GitHub token (hidden; Enter = give up): ")
-    if not token:
-        raise RuntimeError("Not pushed: the results exist only on this machine.")
-    SECRETS.append(token)
-    url = REPO_URL.replace("https://", f"https://{token}@")
-    subprocess.run([*git, "remote", "set-url", "origin", url], check=True)
+    ask_token("Push refused.")  # no (valid) token in the clone: ask once, retry
     sh(*git, "push", "--quiet", env=no_prompt)
     print(f"✅ Saved to GitHub: {message}")
+
+
+def can_push():
+    """True if this clone can push to GitHub without asking for a password."""
+    push = subprocess.run(
+        ["git", "-C", str(REPO_DIR), "push", "--dry-run", "--quiet"],
+        env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+        capture_output=True,
+        text=True,
+    )
+    return push.returncode == 0
+
+
+def ask_token(reason):
+    """Ask once for a GitHub token and store it in the clone's remote URL."""
+    from getpass import getpass
+
+    token = getpass(f"{reason} GitHub token (hidden; Enter = give up): ")
+    if not token:
+        raise RuntimeError("No GitHub token: results could not be pushed.")
+    SECRETS.append(token)
+    url = REPO_URL.replace("https://", f"https://{token}@")
+    subprocess.run(
+        ["git", "-C", str(REPO_DIR), "remote", "set-url", "origin", url], check=True
+    )
+
+
+def authenticate():
+    """Every interactive prompt first, before any download or training.
+
+    Mounts Google Drive and makes sure GitHub accepts pushes (asks for a token if
+    not), so a long session never stops later to wait for a login.
+    """
+    mount_drive()
+    if not can_push():
+        ask_token("GitHub refuses pushes from this clone.")
+        assert can_push(), "GitHub still refuses pushes: check the token's rights"
+    print("✅ Google Drive mounted, GitHub push access OK")
 
 
 DRIVE_RUNS = Path("/content/drive/MyDrive/dane_syntetyczne/runs")
@@ -225,6 +273,23 @@ def save_models(name):
     print(f"{name}: 5 models saved to Drive")
 
 
+DRIVE_POOLS = DRIVE_RUNS.parent / "pools"
+
+
+def save_images(name):
+    """Copy pools/<name>/images/ to Drive and verify every copy."""
+    images = sorted((REPO_DIR / "pools" / name / "images").glob("*.png"))
+    images = [p for p in images if not p.name.endswith(".tmp.png")]
+    assert images, f"{name}: no images in pools/{name}/images; generate it first"
+    dst_dir = DRIVE_POOLS / name / "images"
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    for src in images:
+        dst = dst_dir / src.name
+        shutil.copy2(src, dst)
+        assert dst.stat().st_size == src.stat().st_size, f"bad copy: {dst}"
+    print(f"{name}: {len(images)} images saved to Drive at {dst_dir}")
+
+
 def restore_models(name):
     """Copy runs/<name>/seed-K/model.pt back from Drive; stop unless all 5 are there."""
     for src in sorted((DRIVE_RUNS / name).glob("seed-*/model.pt")):
@@ -248,12 +313,6 @@ def check_environment():
     assert probe.read_text() == "ok", "Drive is not writable"
     probe.unlink()
     print("Drive: writable at", DRIVE_RUNS)
-    push = subprocess.run(
-        ["git", "-C", str(REPO_DIR), "push", "--dry-run", "--quiet"],
-        env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
-        capture_output=True,
-        text=True,
-    )
-    assert push.returncode == 0, f"cannot push to GitHub: {mask(push.stderr)}"
+    assert can_push(), "cannot push to GitHub"
     print("GitHub: push access OK")
     print("✅ Environment ready")
