@@ -151,6 +151,7 @@ effect is still a result: say so and say why.
   uv run synth-train --name m3-ip-0.5 --method synthetic \
       --pool m3-ip-0.5 --tag mode=ip-adapter --tag ip_adapter_scale=0.5
   ```
+
 - **Contact sheets:**
 - **Results on validation:**
 - **What I see:**
