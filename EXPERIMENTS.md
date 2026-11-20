@@ -134,8 +134,23 @@ effect is still a result: say so and say why.
 ## Meeting 3 — Generation from training photos
 
 - **Question:** How close to the real photos should the synthetic images be?
-- **img2img strength values and IP-Adapter scale values tried:**
-- **Commands:**
+- **img2img strength values and IP-Adapter scale values tried:** strength 0.3,
+  0.5, 0.7, 0.9 (`m3-strength-*`); IP-Adapter scale 0.3, 0.5, 0.7, 1.0
+  (`m3-ip-*`). 110 images per pool from the 15 training Maus in turn, with the
+  four prompts and negative prompt of `m2-base`, so only the setting changes.
+- **Commands:** run on a Colab T4 with `colab/m3_train.ipynb` (images and
+  models kept on Google Drive), 5 seeds each:
+
+  ```bash
+  uv run synth-generate --name m3-strength-0.5 --mode img2img --strength 0.5 \
+      --prompt "<m2-base prompts>" --negative-prompt "<m2-base negative>"
+  uv run synth-generate --name m3-ip-0.5 --mode ip-adapter --ip-adapter-scale 0.5 \
+      --prompt "<m2-base prompts>" --negative-prompt "<m2-base negative>"
+  uv run synth-train --name m3-strength-0.5 --method synthetic \
+      --pool m3-strength-0.5 --tag mode=img2img --tag strength=0.5
+  uv run synth-train --name m3-ip-0.5 --method synthetic \
+      --pool m3-ip-0.5 --tag mode=ip-adapter --tag ip_adapter_scale=0.5
+  ```
 - **Contact sheets:**
 - **Results on validation:**
 - **What I see:**

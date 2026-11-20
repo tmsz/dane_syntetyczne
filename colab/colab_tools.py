@@ -12,6 +12,7 @@ Every meeting's train and test notebooks (colab/mN_*.ipynb) use these steps:
     mount_drive()           mount Google Drive at /content/drive
     save_models(name)       copy runs/<name>/seed-K/model.pt to Drive
     save_images(name)       copy pools/<name>/images/ to Drive
+    restore_images(name)    copy them back from Drive (generation then skips them)
     restore_models(name)    copy them back from Drive
     check_environment()     all of the above checks, without training
 
@@ -288,6 +289,28 @@ def save_images(name):
         shutil.copy2(src, dst)
         assert dst.stat().st_size == src.stat().st_size, f"bad copy: {dst}"
     print(f"{name}: {len(images)} images saved to Drive at {dst_dir}")
+
+
+def restore_images(name):
+    """Copy pools/<name>/images/ back from Drive, if saved there before.
+
+    synth-generate skips images that already exist, so a new Colab runtime resumes
+    a pool from Drive instead of generating it again. No-op for a new pool.
+    """
+    src_dir = DRIVE_POOLS / name / "images"
+    images = sorted(src_dir.glob("*.png")) if src_dir.exists() else []
+    if not images:
+        print(f"{name}: no images on Drive yet")
+        return
+    dst_dir = REPO_DIR / "pools" / name / "images"
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    copied = 0
+    for src in images:
+        dst = dst_dir / src.name
+        if not dst.exists():
+            shutil.copy2(src, dst)
+            copied += 1
+    print(f"{name}: {copied} of {len(images)} images restored from Drive")
 
 
 def restore_models(name):
