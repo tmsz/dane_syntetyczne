@@ -1,0 +1,18 @@
+{
+  "method": "real",
+  "pool": null,
+  "model": "efficientnet_b0",
+  "epochs": 8,
+  "batch_size": 64,
+  "budget": 55,
+  "name": "m1-real",
+  "seed": 0,
+  "added": [],
+  "seconds": 30.9,
+  "finished": "2026-11-19T22:23:34+00:00",
+  "device": "cuda",
+  "gpu": "Tesla T4",
+  "python": "3.13.16",
+  "torch": "2.14.1+cu130",
+  "torchvision": "0.29.1+cu130"
+}

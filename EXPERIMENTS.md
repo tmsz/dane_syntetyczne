@@ -51,12 +51,74 @@ effect is still a result: say so and say why.
 
 - **Question:** How much do oversampling and ordinary augmentation help Egyptian
   Mau recall compared with the imbalanced data?
-- **How `oversample()` works:**
-- **How `augment()` works, and why these transforms:**
-- **Commands:**
-- **Results on validation:** (your table and plot)
+- **How `oversample()` works:** repeats the 15 Mau training photos as evenly as
+  possible to add 55 examples: 55 = 3·15 + 10, so every photo is added 3 times
+  and 10 of them a 4th time, chosen with the seeded `rng`. The copies are
+  identical; only the class frequency changes.
+- **How `augment()` works, and why these transforms:** the 55 copies are
+  re-transformed every time they are loaded, so each epoch sees new variants.
+  Two recipes, chosen with `SYNTHDATA_AUGMENT`:
+  - **mild** (`m1-augment`): flip, rotation ±15°, shift ±10%, zoom 0.9–1.1×,
+    brightness/contrast ±20%, saturation ±15%. Changes a real photo of the same
+    cat could have; hue is untouched because coat colour is a breed cue.
+  - **strong** (`m1-augment-strong`): rotation ±35°, shift ±20%, zoom 0.7–1.3×,
+    jitter ±40%, hue ±0.1, grayscale (p 0.2), blur (p 0.3). Written to test the
+    hypothesis that damaging the coat colour and pattern would give **no gain or
+    a loss**.
+- **Commands:** trained on a Colab T4 with `colab/m1_train.ipynb`, 5 seeds each:
+
+  ```bash
+  uv run synth-train --name m1-real --method real
+  uv run synth-train --name m1-oversample --method oversample
+  uv run synth-train --name m1-augment --method augment --tag augment=mild
+  SYNTHDATA_AUGMENT=strong uv run synth-train --name m1-augment-strong \
+      --method augment --tag augment=strong
+  uv run synth-test --run m1-real    # and m1-oversample, m1-augment-strong
+  ```
+
+- **Results on validation:** (20 Maus per run; one photo = 0.05 recall)
+
+  | Run | Mau recall (mean ± std) | Macro-F1 |
+  | --- | ---: | ---: |
+  | `m1-real` | 0.49 ± 0.07 | 0.865 |
+  | `m1-oversample` | 0.69 ± 0.07 | 0.894 |
+  | `m1-augment` (mild) | 0.70 ± 0.04 | 0.897 |
+  | `m1-augment-strong` | **0.78 ± 0.03** | **0.903** |
+
+  ![Mau recall and macro-F1 per seed](evidence/meeting1-validation-recall-f1.png)
+  ![Confusion matrices](evidence/meeting1-validation-confusion.png)
 - **What I see:**
-- **Test results of the three baselines:**
+  - Balancing is the big step: +0.20 to +0.29 recall, better on every seed
+    (p = 0.0625, the minimum with 5 seeds). The baseline avoids the answer
+    "Mau" (precision 0.96, recall 0.49): a class-prior problem.
+  - Mild augmentation adds nothing over oversampling, because `TRAIN_TRANSFORM`
+    already crops, flips and re-lights every image.
+  - Strong augmentation beat mild on all 5 seeds (+0.08). **My hypothesis was
+    refuted.** Likely reasons: the 15 originals stay undistorted, so the real
+    colour is still learned; harsh copies stop the model memorizing the 15
+    photos and push it towards spots and shape (Maus called Russian Blue fall
+    11 → 5).
+  - Cost: more Bengals called "Mau" (2 → 9 of 100); Bengal recall 0.83 → 0.79.
+  - 3 validation Maus (#15, #155, #131) are missed by all 20 models: views the
+    15 training photos don't have (distant, bronze portrait, curled up).
+  - **Chosen for test:** `m1-augment-strong` (highest recall and macro-F1),
+    written down before testing.
+- **Test results of the three baselines:** (30 Maus per run; one photo = 0.033)
+
+  | Run | Mau recall val → test | Macro-F1 val → test |
+  | --- | ---: | ---: |
+  | `m1-real` | 0.49 → **0.49 ± 0.07** | 0.865 → **0.855** |
+  | `m1-oversample` | 0.69 → **0.70 ± 0.03** | 0.894 → **0.882** |
+  | `m1-augment-strong` | 0.78 → **0.73 ± 0.03** | 0.903 → **0.885** |
+
+  ![Validation vs test](evidence/meeting1-val-vs-test.png)
+
+  The ranking holds and balancing is confirmed (+0.21 and +0.25 on every seed).
+  Strong's lead over oversampling shrinks from +0.09 to +0.03 (p = 0.375):
+  part of its validation gain was luck on the 20 photos it was chosen on.
+  7 of the 30 test Maus are missed by every model, a ceiling of 0.77.
+  **Bar for synthetic data: 0.73 Mau recall at 0.885 macro-F1 on test.**
+  Full analysis: `notebooks/meeting1.ipynb`.
 
 ## Meeting 2 — Text-to-image generation
 
