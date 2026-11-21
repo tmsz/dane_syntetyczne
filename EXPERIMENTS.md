@@ -215,8 +215,41 @@ effect is still a result: say so and say why.
   testing: **`m3-strength-0.9`** (0.77; ≥ strength 0.7 on every seed, fewer
   Bengals called Mau) and **`m3-ip-0.3`** (0.78; better than every other scale
   on every seed, highest macro-F1 of all runs). Prediction: both fall on test
-  to about the oversampling level (0.65–0.72), as `m2-base` did. Test results:
-  *pending (`colab/m3_test.ipynb`).* Full analysis: `notebooks/meeting3.ipynb`.
+  to about the oversampling level (0.65–0.72), as `m2-base` did.
+- **Test results:** (30 Maus per run; one photo = 0.033)
+
+  | Run | Mau recall val → test | Macro-F1 val → test | Bengals called Mau (of 150) |
+  | --- | ---: | ---: | ---: |
+  | `m1-oversample` | 0.69 → **0.70 ± 0.03** | 0.894 → **0.882** | 1 |
+  | `m1-augment-strong` | 0.78 → **0.73 ± 0.03** | 0.903 → **0.885** | 4 |
+  | `m2-base` | 0.78 → **0.65 ± 0.05** | 0.906 → **0.879** | 0 |
+  | `m3-strength-0.9` | 0.77 → **0.63 ± 0.06** | 0.903 → **0.877** | 1 |
+  | `m3-ip-0.3` | 0.78 → **0.69 ± 0.05** | 0.907 → **0.886** | 0 |
+
+  ![Validation vs test](evidence/meeting3-val-vs-test.png)
+
+  - **The prediction held.** Both picks fall on test (by −0.14 and −0.09), as
+    `m2-base` did. The validation tie between them, `m2-base` and strong
+    augmentation does not hold: it rested on a few hard validation photos.
+  - **`m3-ip-0.3` is the best generated pool so far.** It is level with
+    oversampling (−0.01; 3 seeds equal, 2 one photo worse) and better than
+    `m2-base` (+0.03 recall, higher macro-F1 on every seed, p = 0.0625).
+    It has the highest macro-F1 (0.886) and Bengal recall (0.93) of all tested
+    runs, with no Bengal called Mau. It is still below strong augmentation
+    (−0.05, worse on 4 of 5 seeds).
+  - **`m3-strength-0.9` is the weakest balanced run.** It is below strong
+    augmentation on every seed (−0.10, p = 0.0625) and below oversampling on
+    4 of 5 seeds.
+  - **What changes in the errors.** Both picks recover test Mau #51, which no
+    baseline model recognises, as `m2-base` did. Both lose #21, which strong
+    augmentation always recognises. More Maus are called Bengal (29–34 of 150,
+    against 23 for the baselines), with Mau precision 0.99–1.00.
+- **Conclusion:** near copies of the photos add nothing beyond oversampling.
+  Images far from the photos add new scenes and lose the breed, so their
+  validation gain doesn't survive the test. A little photo guidance (IP scale
+  0.3) is better than text alone, but no Meeting 3 run beats strong
+  augmentation. **Bar for Meeting 4: 0.73 Mau recall at 0.885 macro-F1
+  (`m1-augment-strong`).** Full analysis: `notebooks/meeting3.ipynb`.
 
 ## Meeting 4 — Editing training photos
 
