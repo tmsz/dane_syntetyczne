@@ -152,10 +152,71 @@ effect is still a result: say so and say why.
       --pool m3-ip-0.5 --tag mode=ip-adapter --tag ip_adapter_scale=0.5
   ```
 
-- **Contact sheets:**
-- **Results on validation:**
+- **Contact sheets:** `pools/m3-strength-{0.3,0.5,0.7,0.9}/contact-sheet.jpg`,
+  `pools/m3-ip-{0.3,0.5,0.7,1.0}/contact-sheet.jpg`; the same photo at every
+  setting:
+
+  ![Same training photo across settings](evidence/meeting3-same-source.png)
+
+  - **Strength 0.3 is a copy of the photo**, including the photographer's
+    signature (#5, #20) and the studio backdrop (#2, #4).
+  - **From strength 0.5 the spots turn into stripes** while the pose and
+    background stay (#0, #2).
+  - **At strength 0.9 only the rough layout survives.** The cat is usually a
+    grey-and-white bicolour (#0, #1, #13), sometimes a cartoon (#7) or a tiny
+    cat (#11).
+  - **IP-Adapter draws a new scene at every scale and never copies a
+    signature.** At scale 1.0 it keeps the silver coat but draws bold stripes
+    (#8, #13, #19). At 0.3 the cats are as varied as the text-only pool,
+    bicolours included (#9 white, #21 black).
+  - **Neither mode keeps the Mau's random spots** once the image differs from
+    the photo.
+  - 1–3 images per pool were safety-blocked at strength 0.9 and IP scale
+    0.7–1.0. They are not used in training.
+- **Results on validation:** (20 Maus per run; one photo = 0.05 recall)
+
+  | Run | Mau recall (mean ± std) | Macro-F1 | Bengals called Mau (of 100) |
+  | --- | ---: | ---: | ---: |
+  | `m1-oversample` | 0.69 ± 0.07 | 0.894 | 6 |
+  | `m1-augment-strong` | 0.78 ± 0.03 | 0.903 | 9 |
+  | `m2-base` | 0.78 ± 0.03 | 0.906 | 2 |
+  | `m3-strength-0.3` | 0.68 ± 0.12 | 0.891 | 6 |
+  | `m3-strength-0.5` | 0.67 ± 0.10 | 0.891 | 5 |
+  | `m3-strength-0.7` | 0.76 ± 0.08 | 0.901 | 5 |
+  | `m3-strength-0.9` | **0.77 ± 0.08** | 0.903 | 3 |
+  | `m3-ip-0.3` | **0.78 ± 0.06** | **0.907** | 4 |
+  | `m3-ip-0.5` | 0.72 ± 0.08 | 0.897 | 4 |
+  | `m3-ip-0.7` | 0.69 ± 0.07 | 0.891 | 5 |
+  | `m3-ip-1.0` | 0.68 ± 0.05 | 0.891 | 3 |
+
+  ![Both sweeps, setting on the x-axis](evidence/meeting3-validation-sweeps.png)
+  ![All runs per seed](evidence/meeting3-validation-recall-f1.png)
 - **What I see:**
-- **Best run of each mode, and its test result:**
+  - **The further from the photo, the better.** img2img recall goes from
+    0.67–0.68 (strength 0.3–0.5) to 0.76–0.77 (0.7–0.9). IP-Adapter recall
+    falls steadily with the scale, 0.78 → 0.72 → 0.69 → 0.68. Scale 0.3 beats
+    scale 1.0 on every seed (+0.10, p = 0.0625). Bengal recall stays at
+    0.81–0.84 throughout.
+  - **Near copies are oversampling.** Strength 0.3 and IP scale 1.0 both score
+    0.68, against 0.69 for `m1-oversample` (p = 1.0). Strength 0.3 also has the
+    widest seed spread of all runs (0.50–0.80).
+  - **The best of each mode ties `m2-base` and strong augmentation.**
+    `m3-ip-0.3` beats oversampling on all 5 seeds (+0.09), but it is level with
+    `m1-augment-strong` and `m2-base` (p = 1.0), with fewer Bengals called Mau
+    than strong augmentation (3–4 vs 9).
+  - **The hard Maus.** #15 (a distant cat) is recovered by the far settings
+    (0–1 of 5 models miss it) and lost by the near copies (4–5 of 5).
+    #131, #155 and #171 are missed by all 40 Meeting 3 models.
+  - **How close should the images be? Not close.** What helps is new scenes
+    and framings, not Mau-like cats. The best pools are the least Mau-like,
+    look like `m2-base`, and score like it. `m2-base` fell from 0.78 to 0.65 on
+    test.
+- **Best run of each mode, and its test result:** chosen on validation before
+  testing: **`m3-strength-0.9`** (0.77; ≥ strength 0.7 on every seed, fewer
+  Bengals called Mau) and **`m3-ip-0.3`** (0.78; better than every other scale
+  on every seed, highest macro-F1 of all runs). Prediction: both fall on test
+  to about the oversampling level (0.65–0.72), as `m2-base` did. Test results:
+  *pending (`colab/m3_test.ipynb`).* Full analysis: `notebooks/meeting3.ipynb`.
 
 ## Meeting 4 — Editing training photos
 
